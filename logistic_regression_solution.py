@@ -1,23 +1,30 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import log_loss
 from scipy.spatial.distance import cdist
 import os
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend for Flask compatibility
 
 result_dir = "results"
 os.makedirs(result_dir, exist_ok=True)
 
 def generate_ellipsoid_clusters(distance, n_samples=100, cluster_std=0.5):
+    """
+    Generate two clusters of points, shifting the second cluster along y = -x direction.
+    """
     np.random.seed(0)
     covariance_matrix = np.array([[cluster_std, cluster_std * 0.8], 
-                                  [cluster_std * 0.8, cluster_std]])
+                                   [cluster_std * 0.8, cluster_std]])
     
     # Generate the first cluster (class 0)
     X1 = np.random.multivariate_normal(mean=[1, 1], cov=covariance_matrix, size=n_samples)
     y1 = np.zeros(n_samples)
 
-    # Generate the second cluster (class 1), shifted by 'distance'
-    X2 = np.random.multivariate_normal(mean=[1 + distance, 1 + distance], cov=covariance_matrix, size=n_samples)
+    # Generate the second cluster (class 1)
+    # Shift along y = -x direction (subtract distance from x and add distance to y)
+    X2 = np.random.multivariate_normal(mean=[1 - distance, 1 + distance], cov=covariance_matrix, size=n_samples)
     y2 = np.ones(n_samples)
 
     # Combine the clusters into one dataset
@@ -34,7 +41,6 @@ def fit_logistic_regression(X, y):
     return model, beta0, beta1, beta2
 
 def calculate_logistic_loss(model, X, y):
-    """Calculates the logistic loss for the model."""
     y_pred_proba = model.predict_proba(X)
     return log_loss(y, y_pred_proba)
 
@@ -42,12 +48,10 @@ def do_experiments(start, end, step_num):
     # Set up experiment parameters
     shift_distances = np.linspace(start, end, step_num)  # Range of shift distances
     beta0_list, beta1_list, beta2_list, slope_list, intercept_list, loss_list, margin_widths = [], [], [], [], [], [], []
-    sample_data = {}  # Store sample datasets and models for visualization
 
-    n_samples = 8
-    n_cols = 2  # Fixed number of columns
-    n_rows = (n_samples + n_cols - 1) // n_cols  # Calculate rows needed
-    plt.figure(figsize=(20, n_rows * 10))  # Adjust figure height based on rows
+    n_cols = 2  # Number of columns for subplots
+    n_rows = (step_num + n_cols - 1) // n_cols  # Calculate required rows
+    plt.figure(figsize=(20, n_rows * 10))  # Adjust figure size
 
     # Run experiments for each shift distance
     for i, distance in enumerate(shift_distances, 1):
